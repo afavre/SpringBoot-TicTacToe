@@ -1,127 +1,154 @@
 package com.afavre.tictactoe.service;
 
-import com.afavre.tictactoe.domain.*;
+import com.afavre.tictactoe.domain.Box;
+import com.afavre.tictactoe.domain.GridCorner;
+import com.afavre.tictactoe.domain.Symbol;
+import com.afavre.tictactoe.domain.TicTacToeGame;
+import com.afavre.tictactoe.domain.request.NewGameRequest;
 import com.afavre.tictactoe.exception.BoxAlreadyAssignedException;
+import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
+@Service
 public class TicTacToeService {
 
-    private TicTacToeGame ticTacToeGame;
+    // Potential memory leak if the game are not deleted
+    private Map<String, TicTacToeGame> games = new ConcurrentHashMap<>();
 
-    public TicTacToeGame getTicTacToeGame() {
-        return this.ticTacToeGame;
+    public TicTacToeGame getTicTacToeGame(String gameId) {
+        return this.games.get(gameId);
     }
 
-    public void createNewGame(Symbol userSymbol) {
-        this.ticTacToeGame = new TicTacToeGame(userSymbol);
+    public TicTacToeGame createNewGame(NewGameRequest newGameRequest) {
+        String gameId = UUID.randomUUID().toString();
+        TicTacToeGame game = new TicTacToeGame(gameId,
+                                               newGameRequest.getUserSymbole(),
+                                               newGameRequest.getUsername());
+        this.games.put(gameId, game);
+        return game;
     }
 
-    public TicTacToeGame next(Symbol symbol, int x, int y) throws BoxAlreadyAssignedException {
-        this.ticTacToeGame.putBox(symbol, x, y);
-        boolean winner = this.ticTacToeGame.isWinner(symbol);
+    public void deleteGame(String gameId) {
+        this.games.remove(gameId);
+    }
+
+    public TicTacToeGame next(TicTacToeGame ticTacToeGame,
+                              Symbol symbol,
+                              int x,
+                              int y) throws BoxAlreadyAssignedException {
+        ticTacToeGame.putBox(symbol, x, y);
+        boolean winner = ticTacToeGame.isWinner(symbol);
         if (winner)
             return ticTacToeGame;
-        boolean draw = this.ticTacToeGame.isDraw();
+        boolean draw = ticTacToeGame.isDraw();
         if (draw)
             return ticTacToeGame;
 
-        this.playComputer();
+        this.playComputer(ticTacToeGame);
 
-        this.ticTacToeGame.isWinner(symbol);
+        ticTacToeGame.isWinner(symbol);
 
-        this.ticTacToeGame.isDraw();
+        ticTacToeGame.isDraw();
 
-        return this.ticTacToeGame;
+        return ticTacToeGame;
     }
 
-    public TicTacToeGame playComputer() throws BoxAlreadyAssignedException {
-        Optional<Box> box = strategyWin(this.ticTacToeGame.getComputerSymbol());
+    public TicTacToeGame playComputer(TicTacToeGame ticTacToeGame) throws BoxAlreadyAssignedException {
+        Optional<Box> box = strategyWin(ticTacToeGame,
+                                        ticTacToeGame.getComputerSymbol());
         if (box.isPresent()) {
-            this.ticTacToeGame.putBox(box.get());
-            return this.ticTacToeGame;
+            ticTacToeGame.putBox(box.get());
+            return ticTacToeGame;
         }
 
-        Optional<Box> boxPreventWin = strategyPreventWin(this.ticTacToeGame.getComputerSymbol());
+        Optional<Box> boxPreventWin = strategyPreventWin(ticTacToeGame,
+                                                         ticTacToeGame.getComputerSymbol());
         if (boxPreventWin.isPresent()) {
-            this.ticTacToeGame.putBox(boxPreventWin.get());
-            return this.ticTacToeGame;
+            ticTacToeGame.putBox(boxPreventWin.get());
+            return ticTacToeGame;
         }
 
-        Optional<Box> boxFork = strategyFork(this.ticTacToeGame.getComputerSymbol());
+        Optional<Box> boxFork = strategyFork(ticTacToeGame,
+                                             ticTacToeGame.getComputerSymbol());
         if (boxFork.isPresent()) {
-            this.ticTacToeGame.putBox(boxFork.get());
-            return this.ticTacToeGame;
+            ticTacToeGame.putBox(boxFork.get());
+            return ticTacToeGame;
         }
 
-        Optional<Box> boxPreventFork = strategyPreventFork(this.ticTacToeGame.getComputerSymbol());
+        Optional<Box> boxPreventFork = strategyPreventFork(ticTacToeGame,
+                                                           ticTacToeGame.getComputerSymbol());
         if (boxPreventFork.isPresent()) {
-            this.ticTacToeGame.putBox(boxPreventFork.get());
-            return this.ticTacToeGame;
+            ticTacToeGame.putBox(boxPreventFork.get());
+            return ticTacToeGame;
         }
 
         // Strategy - use the center
-        Box boxCenter= this.ticTacToeGame.getGrid().getBox(GridCorner.CENTER);
+        Box boxCenter= ticTacToeGame.getGrid().getBox(GridCorner.CENTER);
         if (boxCenter == null) {
-            this.ticTacToeGame.getGrid().putBox(this.ticTacToeGame.getComputerSymbol(), GridCorner.CENTER);
-            return this.ticTacToeGame;
+            ticTacToeGame.getGrid().putBox(ticTacToeGame.getComputerSymbol(), GridCorner.CENTER);
+            return ticTacToeGame;
         }
 
 
-        Optional<Box> boxOpposite = strategyOppositeCorner(this.ticTacToeGame.getComputerSymbol());
+        Optional<Box> boxOpposite = strategyOppositeCorner(ticTacToeGame, ticTacToeGame.getComputerSymbol());
         if (boxOpposite.isPresent()) {
-            this.ticTacToeGame.putBox(boxOpposite.get());
-            return this.ticTacToeGame;
+            ticTacToeGame.putBox(boxOpposite.get());
+            return ticTacToeGame;
         }
 
 
-        Optional<Box> boxEmptyCorner = strategyEmptyCorner(this.ticTacToeGame.getComputerSymbol());
+        Optional<Box> boxEmptyCorner = strategyEmptyCorner(ticTacToeGame, ticTacToeGame.getComputerSymbol());
         if (boxEmptyCorner.isPresent()) {
-            this.ticTacToeGame.putBox(boxEmptyCorner.get());
-            return this.ticTacToeGame;
+            ticTacToeGame.putBox(boxEmptyCorner.get());
+            return ticTacToeGame;
         }
 
-        Optional<Box> boxEmptySide = strategyEmptySide(this.ticTacToeGame.getComputerSymbol());
+        Optional<Box> boxEmptySide = strategyEmptySide(ticTacToeGame, ticTacToeGame.getComputerSymbol());
         if (boxEmptySide.isPresent()) {
-            this.ticTacToeGame.putBox(boxEmptySide.get());
-            return this.ticTacToeGame;
+            ticTacToeGame.putBox(boxEmptySide.get());
+            return ticTacToeGame;
         }
 
         System.out.println("------- Unexpected case ---------");
-        return this.ticTacToeGame;
+        return ticTacToeGame;
     }
 
-    protected Optional<Box> strategyWin(Symbol symbol) {
-        return nextMove(symbol);
+    protected Optional<Box> strategyWin(TicTacToeGame ticTacToeGame, Symbol symbol) {
+        return nextMove(ticTacToeGame, symbol);
     }
 
-    protected Optional<Box> strategyPreventWin(Symbol symbol) {
-        Optional<Box> box = nextMove(Symbol.getOpponentSymbol(symbol));
+    protected Optional<Box> strategyPreventWin(TicTacToeGame ticTacToeGame, Symbol symbol) {
+        Optional<Box> box = nextMove(ticTacToeGame, Symbol.getOpponentSymbol(symbol));
         return box.map(box1 -> new Box(symbol,
                                        box1.getX(),
                                        box1.getY()));
     }
 
-    protected Optional<Box> strategyFork(Symbol symbol) {
-        Optional<Box> boxLine = nextMoveForkLineColumn(symbol, true);
+    protected Optional<Box> strategyFork(TicTacToeGame ticTacToeGame, Symbol symbol) {
+        Optional<Box> boxLine = nextMoveForkLineColumn(ticTacToeGame, symbol, true);
         if (boxLine.isPresent())
             return boxLine.map(box1 -> new Box(symbol,
                                                box1.getX(),
                                                box1.getY()));
 
-        Optional<Box> boxColumn = nextMoveForkLineColumn(symbol, false);
+        Optional<Box> boxColumn = nextMoveForkLineColumn(ticTacToeGame, symbol, false);
         return boxColumn.map(box2 -> new Box(symbol,
                                              box2.getX(),
                                              box2.getY()));
 
     }
 
-    protected Optional<Box> strategyPreventFork(Symbol symbol) {
-        Optional<Box> boxLine = nextMoveForkLineColumn(Symbol.getOpponentSymbol(symbol), true);
-        Optional<Box> boxColumn = nextMoveForkLineColumn(Symbol.getOpponentSymbol(symbol), false);
-        Optional<List<Box>> boxesDiagonal = forkMoveDiagonal(Symbol.getOpponentSymbol(symbol));
+    protected Optional<Box> strategyPreventFork(TicTacToeGame ticTacToeGame, Symbol symbol) {
+        Optional<Box> boxLine = nextMoveForkLineColumn(ticTacToeGame,
+                                                       Symbol.getOpponentSymbol(symbol),
+                                                       true);
+        Optional<Box> boxColumn = nextMoveForkLineColumn(ticTacToeGame,
+                                                         Symbol.getOpponentSymbol(symbol),
+                                                         false);
+        Optional<List<Box>> boxesDiagonal = forkMoveDiagonal(ticTacToeGame,
+                                                             Symbol.getOpponentSymbol(symbol));
 
         List<Box> result = new ArrayList<>();
 
@@ -131,14 +158,14 @@ public class TicTacToeService {
 
         // Check if among the possible forks, one will allow the computer to align 2 symbols
         for (Box forkBox : result) {
-            Optional<List<Integer>> lineWithNoOpponentSymbole = this.ticTacToeGame.getGrid()
+            Optional<List<Integer>> lineWithNoOpponentSymbole = ticTacToeGame.getGrid()
                                                                                   .getLineWithNoOpponentSymbole(symbol,
                                                                                                                 forkBox.getX(),
                                                                                                                 true);
             if (lineWithNoOpponentSymbole.isPresent() && lineWithNoOpponentSymbole.get().size() < 3)
                 return Optional.of(new Box(symbol, forkBox.getX(), forkBox.getY()));
 
-            Optional<List<Integer>> lineWithNoOpponentSymboleColumn = this.ticTacToeGame.getGrid()
+            Optional<List<Integer>> lineWithNoOpponentSymboleColumn = ticTacToeGame.getGrid()
                                                                                         .getLineWithNoOpponentSymbole(symbol,
                                                                                                                 forkBox.getX(),
                                                                                                                 false);
@@ -149,10 +176,10 @@ public class TicTacToeService {
 
         // to check if still needed
         if (boxLine.isPresent()) {
-            boolean hasOppositeCorner = this.ticTacToeGame.getGrid().hasTwoOppositeCorners(Symbol.getOpponentSymbol(symbol));
+            boolean hasOppositeCorner = ticTacToeGame.getGrid().hasTwoOppositeCorners(Symbol.getOpponentSymbol(symbol));
 
             if (hasOppositeCorner) {
-                Optional<Box> boxHasOppositeCorner = strategyEmptySide(symbol);
+                Optional<Box> boxHasOppositeCorner = strategyEmptySide(ticTacToeGame, symbol);
                 return boxHasOppositeCorner.map(box1 -> new Box(symbol,
                                                                 box1.getX(),
                                                                 box1.getY()));
@@ -164,10 +191,10 @@ public class TicTacToeService {
         }
 
         if (boxColumn.isPresent()) {
-            boolean hasOppositeCorner = this.ticTacToeGame.getGrid().hasTwoOppositeCorners(Symbol.getOpponentSymbol(symbol));
+            boolean hasOppositeCorner = ticTacToeGame.getGrid().hasTwoOppositeCorners(Symbol.getOpponentSymbol(symbol));
 
             if (hasOppositeCorner) {
-                Optional<Box> boxHasOppositeCorner = strategyEmptySide(symbol);
+                Optional<Box> boxHasOppositeCorner = strategyEmptySide(ticTacToeGame, symbol);
                 return boxHasOppositeCorner.map(box1 -> new Box(symbol,
                                                                 box1.getX(),
                                                                 box1.getY()));
@@ -182,21 +209,23 @@ public class TicTacToeService {
 
     }
 
-    protected Optional<Box> nextMove(Symbol symbol) {
-        Optional<Box> boxLine = nextMoveColumnLine(symbol, true);
+    protected Optional<Box> nextMove(TicTacToeGame ticTacToeGame,
+                                     Symbol symbol) {
+        Optional<Box> boxLine = nextMoveColumnLine(ticTacToeGame, symbol, true);
         if (boxLine.isPresent())
             return boxLine;
 
-        Optional<Box> boxColumn = nextMoveColumnLine(symbol, false);
+        Optional<Box> boxColumn = nextMoveColumnLine(ticTacToeGame, symbol, false);
         if (boxColumn.isPresent())
             return boxColumn;
 
-        return nextMoveDiagonal(symbol);
+        return nextMoveDiagonal(ticTacToeGame, symbol);
     }
 
-    private Optional<Box> nextMoveColumnLine(Symbol symbol, boolean checkLine) {
+    private Optional<Box> nextMoveColumnLine(TicTacToeGame ticTacToeGame,
+                                             Symbol symbol, boolean checkLine) {
         for (int x = 0; x < TicTacToeGame.GRID_SIZE; x++) {
-            Optional<List<Integer>> lineWithNoOpponentSymbole = this.ticTacToeGame.getGrid()
+            Optional<List<Integer>> lineWithNoOpponentSymbole = ticTacToeGame.getGrid()
                                                                                   .getLineWithNoOpponentSymbole(symbol,
                                                                                                                 x,
                                                                                                                 checkLine);
@@ -214,7 +243,7 @@ public class TicTacToeService {
         return Optional.empty();
     }
 
-    private Optional<Box> nextMoveDiagonal(Symbol symbol) {
+    private Optional<Box> nextMoveDiagonal(TicTacToeGame ticTacToeGame, Symbol symbol) {
         List<Box> diagonal1 = new ArrayList<Box>() {{
             add(new Box(symbol, 0, 0));
             add(new Box(symbol, 1, 1));
@@ -227,12 +256,12 @@ public class TicTacToeService {
             add(new Box(symbol, 0, 2));
         }};
 
-        Optional<List<Box>> boxesDiagonal1 = iterateDiagonal(diagonal1, symbol);
+        Optional<List<Box>> boxesDiagonal1 = iterateDiagonal(ticTacToeGame, diagonal1, symbol);
 
         if (boxesDiagonal1.isPresent() && boxesDiagonal1.get().size() == 1)
             return Optional.of(boxesDiagonal1.get().get(0));
 
-        Optional<List<Box>> boxesDiagonal2 = iterateDiagonal(diagonal2, symbol);
+        Optional<List<Box>> boxesDiagonal2 = iterateDiagonal(ticTacToeGame, diagonal2, symbol);
 
         if (boxesDiagonal2.isPresent() && boxesDiagonal2.get().size() == 1)
             return Optional.of(boxesDiagonal2.get().get(0));
@@ -240,10 +269,12 @@ public class TicTacToeService {
         return Optional.empty();
     }
 
-    private Optional<List<Box>> iterateDiagonal(List<Box> diagonal, Symbol symbol) {
+    private Optional<List<Box>> iterateDiagonal(TicTacToeGame ticTacToeGame,
+                                                List<Box> diagonal,
+                                                Symbol symbol) {
         List<Box> toRemove = new ArrayList<>();
         for (Box boxExpected : diagonal) {
-            Box box = this.ticTacToeGame.getGrid().getBox(boxExpected.getX(), boxExpected.getY());
+            Box box = ticTacToeGame.getGrid().getBox(boxExpected.getX(), boxExpected.getY());
             if (box != null && box.getSymbol() == symbol)
                 toRemove.add(box);
             else if (box != null && box.getSymbol() != symbol) {
@@ -258,11 +289,13 @@ public class TicTacToeService {
 
     }
 
-    private Optional<Box> nextMoveForkLineColumn(Symbol symbol, boolean isLine) {
+    private Optional<Box> nextMoveForkLineColumn(TicTacToeGame ticTacToeGame,
+                                                 Symbol symbol,
+                                                 boolean isLine) {
         // A case for with which the column/line contain only one symbol
 
         for (int x = 0; x < TicTacToeGame.GRID_SIZE; x++) {
-            Optional<List<Integer>> lineWithNoOpponentSymbole = this.ticTacToeGame.getGrid()
+            Optional<List<Integer>> lineWithNoOpponentSymbole = ticTacToeGame.getGrid()
                                                                                   .getLineWithNoOpponentSymbole(symbol,
                                                                                                                 x,
                                                                                                                 isLine);
@@ -272,7 +305,7 @@ public class TicTacToeService {
 
                 if (option.size() == 2) {
 
-                    Optional<List<Integer>> columnWithNoOpponentSymbole = this.ticTacToeGame.getGrid()
+                    Optional<List<Integer>> columnWithNoOpponentSymbole = ticTacToeGame.getGrid()
                                                                                             .getLineWithNoOpponentSymbole(symbol,
                                                                                                                           option.get(0),
                                                                                                                           !isLine);
@@ -281,7 +314,7 @@ public class TicTacToeService {
                         && columnWithNoOpponentSymbole.get().size() == 2)
                         return Optional.of(new Box(symbol, x, option.get(0)));
 
-                    Optional<List<Integer>> columnWithNoOpponentSymbole2 = this.ticTacToeGame.getGrid()
+                    Optional<List<Integer>> columnWithNoOpponentSymbole2 = ticTacToeGame.getGrid()
                                                                                             .getLineWithNoOpponentSymbole(symbol,
                                                                                                                           option.get(1),
                                                                                                                           !isLine);
@@ -298,7 +331,8 @@ public class TicTacToeService {
 
     }
 
-    private Optional<List<Box>> forkMoveDiagonal(Symbol symbol) {
+    private Optional<List<Box>> forkMoveDiagonal(TicTacToeGame ticTacToeGame,
+                                                 Symbol symbol) {
         List<Box> diagonal1 = new ArrayList<Box>() {{
             add(new Box(symbol, 0, 0));
             add(new Box(symbol, 1, 1));
@@ -311,12 +345,12 @@ public class TicTacToeService {
             add(new Box(symbol, 0, 2));
         }};
 
-        Optional<List<Box>> boxesDiagonal1 = iterateDiagonal(diagonal1, symbol);
+        Optional<List<Box>> boxesDiagonal1 = iterateDiagonal(ticTacToeGame, diagonal1, symbol);
 
         if (boxesDiagonal1.isPresent() && boxesDiagonal1.get().size() == 2)
             return boxesDiagonal1;
 
-        Optional<List<Box>> boxesDiagonal2 = iterateDiagonal(diagonal2, symbol);
+        Optional<List<Box>> boxesDiagonal2 = iterateDiagonal(ticTacToeGame, diagonal2, symbol);
 
         if (boxesDiagonal2.isPresent() && boxesDiagonal2.get().size() == 2)
             return boxesDiagonal2;
@@ -324,10 +358,10 @@ public class TicTacToeService {
         return Optional.empty();
     }
 
-    private Optional<Box> strategyOppositeCorner(Symbol symbol) {
+    private Optional<Box> strategyOppositeCorner(TicTacToeGame ticTacToeGame, Symbol symbol) {
 
-        Box topLeftCorner = this.ticTacToeGame.getGrid().getBox(GridCorner.TOP_LEFT);
-        Box bottomRightCorner = this.ticTacToeGame.getGrid().getBox(GridCorner.BOTTOM_RIGHT);
+        Box topLeftCorner = ticTacToeGame.getGrid().getBox(GridCorner.TOP_LEFT);
+        Box bottomRightCorner = ticTacToeGame.getGrid().getBox(GridCorner.BOTTOM_RIGHT);
         if (topLeftCorner != null
             && topLeftCorner.getSymbol() == Symbol.getOpponentSymbol(symbol)
             && bottomRightCorner == null)
@@ -338,8 +372,8 @@ public class TicTacToeService {
             && topLeftCorner == null)
             return Optional.of(new Box(symbol, GridCorner.TOP_LEFT));
 
-        Box bottomLeftCorner = this.ticTacToeGame.getGrid().getBox(GridCorner.BOTTOM_LEFT);
-        Box topRightCorner = this.ticTacToeGame.getGrid().getBox(GridCorner.TOP_RIGHT);
+        Box bottomLeftCorner = ticTacToeGame.getGrid().getBox(GridCorner.BOTTOM_LEFT);
+        Box topRightCorner = ticTacToeGame.getGrid().getBox(GridCorner.TOP_RIGHT);
         if (bottomLeftCorner != null
             && bottomLeftCorner.getSymbol() == Symbol.getOpponentSymbol(symbol)
             && topRightCorner == null)
@@ -354,42 +388,42 @@ public class TicTacToeService {
 
     }
 
-    private Optional<Box> strategyEmptyCorner(Symbol symbol) {
+    private Optional<Box> strategyEmptyCorner(TicTacToeGame ticTacToeGame, Symbol symbol) {
 
-        Box topLeftCorner = this.ticTacToeGame.getGrid().getBox(GridCorner.TOP_LEFT);
+        Box topLeftCorner = ticTacToeGame.getGrid().getBox(GridCorner.TOP_LEFT);
         if (topLeftCorner == null)
             return Optional.of(new Box(symbol, GridCorner.TOP_LEFT));
 
-        Box topRightCorner = this.ticTacToeGame.getGrid().getBox(GridCorner.TOP_RIGHT);
+        Box topRightCorner = ticTacToeGame.getGrid().getBox(GridCorner.TOP_RIGHT);
         if (topRightCorner == null)
             return Optional.of(new Box(symbol, GridCorner.TOP_RIGHT));
 
-        Box bottomLeftCorner = this.ticTacToeGame.getGrid().getBox(GridCorner.BOTTOM_LEFT);
+        Box bottomLeftCorner = ticTacToeGame.getGrid().getBox(GridCorner.BOTTOM_LEFT);
         if (bottomLeftCorner == null)
             return Optional.of(new Box(symbol, GridCorner.BOTTOM_LEFT));
 
-        Box bottomRightCorner = this.ticTacToeGame.getGrid().getBox(GridCorner.BOTTOM_RIGHT);
+        Box bottomRightCorner = ticTacToeGame.getGrid().getBox(GridCorner.BOTTOM_RIGHT);
         if (bottomRightCorner == null)
             return Optional.of(new Box(symbol, GridCorner.BOTTOM_RIGHT));
 
         return Optional.empty();
     }
 
-    private Optional<Box> strategyEmptySide(Symbol symbol) {
+    private Optional<Box> strategyEmptySide(TicTacToeGame ticTacToeGame, Symbol symbol) {
 
-        Box leftSide = this.ticTacToeGame.getGrid().getBox(GridCorner.LEFT_SIDE);
+        Box leftSide = ticTacToeGame.getGrid().getBox(GridCorner.LEFT_SIDE);
         if (leftSide == null)
             return Optional.of(new Box(symbol, GridCorner.LEFT_SIDE));
 
-        Box rightSide = this.ticTacToeGame.getGrid().getBox(GridCorner.RIGHT_SIDE);
+        Box rightSide = ticTacToeGame.getGrid().getBox(GridCorner.RIGHT_SIDE);
         if (rightSide == null)
             return Optional.of(new Box(symbol, GridCorner.RIGHT_SIDE));
 
-        Box topSide = this.ticTacToeGame.getGrid().getBox(GridCorner.TOP_SIDE);
+        Box topSide = ticTacToeGame.getGrid().getBox(GridCorner.TOP_SIDE);
         if (topSide == null)
             return Optional.of(new Box(symbol, GridCorner.TOP_SIDE));
 
-        Box bottomSide = this.ticTacToeGame.getGrid().getBox(GridCorner.BOTTOM_SIDE);
+        Box bottomSide = ticTacToeGame.getGrid().getBox(GridCorner.BOTTOM_SIDE);
         if (bottomSide == null)
             return Optional.of(new Box(symbol, GridCorner.BOTTOM_SIDE));
 

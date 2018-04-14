@@ -1,5 +1,7 @@
 package com.afavre.tictactoe.domain;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.util.Optional;
 
 public enum Symbol {
@@ -12,6 +14,7 @@ public enum Symbol {
         this.key = key;
     }
 
+    @JsonValue
     public String getKey() {
         return this.key;
     }

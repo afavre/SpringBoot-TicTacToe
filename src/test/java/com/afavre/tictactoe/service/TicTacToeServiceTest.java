@@ -2,9 +2,10 @@ package com.afavre.tictactoe.service;
 
 import com.afavre.tictactoe.domain.Box;
 import com.afavre.tictactoe.domain.Symbol;
+import com.afavre.tictactoe.domain.TicTacToeGame;
+import com.afavre.tictactoe.domain.request.NewGameRequest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.junit.runners.Parameterized;
 
 import java.util.Arrays;
@@ -49,14 +50,14 @@ public class TicTacToeServiceTest {
     @Test
     public void testNextMove() {
         TicTacToeService ticTacToeService = new TicTacToeService();
-        ticTacToeService.createNewGame(Symbol.O);
+        TicTacToeGame newGame = ticTacToeService.createNewGame(new NewGameRequest("Test", Symbol.O));
 
-        for (Box box : input)
-            ticTacToeService.getTicTacToeGame().getGrid().putBox(box.getSymbol(), box.getX(),box.getY());
+        for (Box box : this.input)
+            newGame.getGrid().putBox(box.getSymbol(), box.getX(),box.getY());
 
-        Optional<Box> box = ticTacToeService.nextMove(Symbol.O);
+        Optional<Box> box = ticTacToeService.nextMove(newGame, Symbol.O);
         assertTrue(box.isPresent());
-        assertEquals(expected, box.get());
+        assertEquals(this.expected, box.get());
     }
 
 }

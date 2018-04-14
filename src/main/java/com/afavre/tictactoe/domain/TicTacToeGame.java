@@ -2,8 +2,6 @@ package com.afavre.tictactoe.domain;
 
 import com.afavre.tictactoe.exception.BoxAlreadyAssignedException;
 
-import java.util.UUID;
-
 import static com.afavre.tictactoe.util.Utils.isSameSymbole;
 
 public class TicTacToeGame {
@@ -21,11 +19,14 @@ public class TicTacToeGame {
 
     private final Grid grid;
 
-    public TicTacToeGame(Symbol userSymbol) {
+    private final String username;
+
+    public TicTacToeGame(String gameId, Symbol userSymbol, String username) {
         this.grid = new Grid(GRID_SIZE);
-        this.gameId = UUID.randomUUID().toString();
+        this.gameId = gameId;
         this.userSymbol = userSymbol;
         this.computerSymbol = userSymbol == Symbol.X ? Symbol.O : Symbol.X;
+        this.username = username;
     }
 
     public boolean isTerminated() {
@@ -50,6 +51,10 @@ public class TicTacToeGame {
 
     public Symbol getComputerSymbol() {
         return this.computerSymbol;
+    }
+
+    public String getUsername() {
+        return this.username;
     }
 
     public synchronized void putBox(Symbol symbol, int x, int y) throws BoxAlreadyAssignedException {
